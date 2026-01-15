@@ -97,5 +97,17 @@
   }
 </script>
 
+<script>
+  // 设置面板拦截冒泡：在打开设置面板时阻止冒泡触发翻页事件
+  (function(){
+    var panel = document.getElementById('settingsPanel');
+    if (!panel) return;
+    // 当设置面板显示时，阻止全局点击事件冒泡
+    panel.addEventListener('click', function(e){ e.stopPropagation(); });
+    // 当面板显示时也阻止触摸事件的默认冒泡行为（提升容错）
+    panel.addEventListener('touchstart', function(e){ e.stopPropagation(); }, {passive:true});
+  })();
+</script>
+
 </body>
 </html>
