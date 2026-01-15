@@ -51,7 +51,7 @@ function getCookie(name) {
 function openSet() {
     var url = getCookie('url');
     if (!url) {
-        url = 'http://192.168.1.***:1122';
+        url = 'http://172.19.0.1:1122';
     }
     $$('#url').value = url;
     if (setStatus) {

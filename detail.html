@@ -6,84 +6,40 @@
     <title>kindle阅读</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <style>
-        html,
-        head,
-        body {
-            padding: 0;
-            margin: 0;
-            height: 100%;
-            overflow: hidden;
-        }
-
-        a {
-            text-decoration: none;
-        }
-
-        .main-text {
-            font-size: 1.62rem;
-        }
-
-        #content1 {
-            padding: 0 20px;
-            text-align: justify;
-            height: 250px;
-            overflow: hidden;
-        }
-
-        #content1 p {
-            margin: 0;
-            line-height: 2.4rem;
-        }
-
-        .menu {
-            display: none;
-            position: fixed;
-            bottom: 0;
-            background: #fff;
-            padding: 20px;
-            border-top: 1px solid #ddd;
-            width: 100%;
-
-            box-sizing: border-box;
-        }
-
-        .menu div {
-            float: left;
-            padding-left: 40px;
-        }
-
-        .chapter-list {
-            position: fixed;
-            top: 0;
-            background: #fff;
-            display: none;
-        }
-
-        .chapter-list p {
-            padding: 10px;
-            margin: 0;
-        }
+        html, body { padding: 0; margin: 0; height: 100%; overflow: hidden; }
+        a { text-decoration: none; }
+        .main-text { font-size: 1.62rem; }
+        #content1 { padding: 0 20px; text-align: justify; height: 250px; overflow: hidden; }
+        #content1 p { margin: 0; line-height: 2.4rem; }
+        .menu { display: none; position: fixed; bottom: 0; background: #fff; padding: 20px; border-top: 1px solid #ddd; width: 100%; box-sizing: border-box; }
+        .menu div { float: left; padding-left: 40px; }
+        .chapter-list { position: fixed; top: 0; background: #fff; display: none; }
+        .chapter-list p { padding: 10px; margin: 0; }
     </style>
 </head>
 
 <body>
 <div id='page'>
-    <div id='mainText' class='main-text'>
-        <!-- <h3>第一章：重生</h3> -->
-        <div id="content1"></div>
-        <div class="chapter-list"></div>
-        <div class="menu">
-            <div onclick="jump('/book.html')" style="padding-bottom: 30px;">书架</div>
-            <!-- <div onclick="alert('开发中~~')">设置</div> -->
-            <div onclick="openChapterList()">目录</div>
-            <div onclick="prev()">上一章</div>
-            <div onclick="next()">下一章</div>
-        </div>
-
+  <div id='mainText' class='main-text'>
+    <!-- <h3>第一章：重生</h3> -->
+    <div id="content1"></div>
+    <div class="chapter-list"></div>
+    <div class="menu">
+      <div onclick="jump('/book.html')" style="padding-bottom: 30px;">书架</div>
+      <div onclick="openSettingsPanel()" style="padding-bottom: 30px;">设置</div>
+      <div onclick="openChapterList()">目录</div>
+      <div onclick="prev()">上一章</div>
+      <div onclick="next()">下一章</div>
     </div>
+  </div>
 </div>
+
+<!-- Settings panel; actual UI rendered by detail-settings.js on first open -->
+<div id="settingsPanel" style="display:none; position: fixed; bottom: 60px; left: 0; right: 0; background:#fff; border-top:1px solid #ddd; padding:12px; z-index:1000;"></div>
+
 <script src="./jquery-2.2.4.min.js?v1"></script>
 <script src="./book.js?v1"></script>
+<script src="./detail-settings.js"></script>
 <script>
     var menu = false;
 
@@ -129,17 +85,17 @@
         }
     }
 </script>
-</body>
-
 <script>
-    function jump(target) {
-        if (typeof target === 'string' && target.startsWith('/')) {
-            var baseDir = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
-            window.location.href = window.location.origin + baseDir + target.substring(1);
-        } else {
-            window.location.href = target;
-        }
+  // 目录跳转时使用相对路径
+  function jump(target) {
+    if (typeof target === 'string' && target.startsWith('/')) {
+      var baseDir = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+      window.location.href = window.location.origin + baseDir + target.substring(1);
+    } else {
+      window.location.href = target;
     }
+  }
 </script>
 
+</body>
 </html>
