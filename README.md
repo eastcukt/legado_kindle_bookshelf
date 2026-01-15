@@ -11,14 +11,14 @@ Mixed Content: The page at 'https://k.dh8.link/' was loaded over HTTPS, but requ
 
 问题场景：https的页面，设置本地链接后点确定报错
 
-解决：允许转发网站进行本地网络访问（一般左上角锁那里弹出）。但是对于kindle设备没法弹，因此不用使用https，用普通http就行
+解决：允许转发网站进行本地网络访问（一般左上角锁那里弹出）。但是对于kindle设备没法弹，因此不使用https，用普通http就行
 
 
 ### 报错：Access to XMLHttpRequest XXX blocked by CORS policy
 ~~~
-Access to XMLHttpRequest at 'http://172.19.0.1:1122/getBookshelf' from origin 'http://202.165.123.76:1122' has been blocked by CORS policy: The request client is not a secure context and the resource is in more-private address space `local`.
+Access to XMLHttpRequest at 'http://172.19.0.1:1122/getBookshelf' from origin 'http://x.x.x.x:1122' has been blocked by CORS policy: The request client is not a secure context and the resource is in more-private address space `local`.
 ~~~
 
 问题场景：http页面，设置本地链接后点击报错
 
-解决：尝试https（你要是问这不是和上面冲突了吗？确实，简直左右脑互搏，但这个报错是出现在谷歌浏览器上，在kindle上不会报错，所以我目前通过http使用的）
+解决：尝试https（你要是问这不是和上面冲突了吗？确实，简直左右脑互搏，但这个报错是出现在谷歌浏览器上，在kindle上不会报错，所以我目前通过http使用的，因此现代的谷歌浏览器上用https，kindle上用http，目前我是这样做的）
