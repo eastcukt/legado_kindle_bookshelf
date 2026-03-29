@@ -82,9 +82,7 @@
         }
 
         .settings-panel .row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+            overflow: hidden;
             margin-bottom: 12px;
         }
 
@@ -92,7 +90,17 @@
             margin-bottom: 0;
         }
 
+        .settings-panel .label {
+            float: left;
+            line-height: 36px;
+        }
+
+        .settings-panel .controls {
+            float: right;
+        }
+
         .settings-panel .value {
+            display: inline-block;
             min-width: 72px;
             text-align: center;
         }
@@ -114,33 +122,33 @@
         <div class="chapter-list"></div>
         <div class="settings-panel" id="settingsPanel">
             <div class="row">
-                <span>Font Size</span>
-                <button type="button" onclick="changeFontSize(-1, event)">-</button>
-                <span class="value" id="fontSizeValue"></span>
-                <button type="button" onclick="changeFontSize(1, event)">+</button>
+                <span class="label">Font Size</span>
+                <span class="controls">
+                    <button type="button" onclick="changeFontSize(-1, event)">-</button>
+                    <span class="value" id="fontSizeValue"></span>
+                    <button type="button" onclick="changeFontSize(1, event)">+</button>
+                </span>
             </div>
             <div class="row">
-                <span>Line Height</span>
-                <button type="button" onclick="changeLineHeight(-1, event)">-</button>
-                <span class="value" id="lineHeightValue"></span>
-                <button type="button" onclick="changeLineHeight(1, event)">+</button>
+                <span class="label">Line Height</span>
+                <span class="controls">
+                    <button type="button" onclick="changeLineHeight(-1, event)">-</button>
+                    <span class="value" id="lineHeightValue"></span>
+                    <button type="button" onclick="changeLineHeight(1, event)">+</button>
+                </span>
             </div>
         </div>
         <div class="menu">
-            <div onclick="jump('/book.html')">Shelf</div>
-            <div onclick="toggleSettings(event)">Settings</div>
-            <div onclick="openChapterList(event)">TOC</div>
-            <div onclick="prev(event)">Prev</div>
-            <div onclick="next(event)">Next</div>
+            <div onclick="jump('book.html')">书架</div>
+            <div onclick="toggleSettings(event)">设置</div>
+            <div onclick="openChapterList(event)">目录</div>
+            <div onclick="prev(event)">上一章</div>
+            <div onclick="next(event)">下一章</div>
         </div>
     </div>
 </div>
-
-<!-- Settings panel; actual UI rendered by detail-settings.js on first open -->
-<div id="settingsPanel" style="display:none; position: fixed; bottom: 60px; left: 0; right: 0; background:#fff; border-top:1px solid #ddd; padding:12px; z-index:1000;"></div>
-
 <script src="./jquery-2.2.4.min.js?v1"></script>
-<script src="./book.js?v2"></script>
+<script src="./book.js?v3"></script>
 <script>
     var menu = false;
 
@@ -151,15 +159,16 @@
     var contentNode = $$('#content1');
     var windowHeight = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
     var contentHeight = windowHeight - 55;
-    contentNode.setAttribute('style', 'height: ' + contentHeight + 'px;');
+    contentNode.style.height = contentHeight + 'px';
 
     var containerRect = contentNode.getBoundingClientRect();
     var nextX = Math.floor(containerRect.right - containerRect.width * 0.3);
     var prevX = Math.floor(containerRect.left + containerRect.width * 0.3);
 
     document.addEventListener('click', function (event) {
-        if (event.target.closest('.menu') || event.target.closest('.chapter-list') ||
-            event.target.closest('.settings-panel')) {
+        if (isInsideClass(event.target, 'menu') ||
+            isInsideClass(event.target, 'chapter-list') ||
+            isInsideClass(event.target, 'settings-panel')) {
             return;
         }
 
@@ -177,7 +186,7 @@
                 showMenu();
             }
         }
-    });
+    }, false);
 
     function page(direction) {
         if (direction === 'next' && isBottomReached(contentNode)) {
@@ -198,30 +207,19 @@
         hideSettings();
         menu = false;
     }
-</script>
-<script>
-  // 目录跳转时使用相对路径
-  function jump(target) {
-    if (typeof target === 'string' && target.startsWith('/')) {
-      var baseDir = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
-      window.location.href = window.location.origin + baseDir + target.substring(1);
-    } else {
-      window.location.href = target;
+
+    function isInsideClass(node, className) {
+        while (node) {
+            if (node.className && typeof node.className === 'string') {
+                if ((' ' + node.className + ' ').indexOf(' ' + className + ' ') > -1) {
+                    return true;
+                }
+            }
+            node = node.parentNode;
+        }
+        return false;
     }
-  }
 </script>
-
-<script>
-  // 设置面板拦截冒泡：在打开设置面板时阻止冒泡触发翻页事件
-  (function(){
-    var panel = document.getElementById('settingsPanel');
-    if (!panel) return;
-    // 当设置面板显示时，阻止全局点击事件冒泡
-    panel.addEventListener('click', function(e){ e.stopPropagation(); });
-    // 当面板显示时也阻止触摸事件的默认冒泡行为（提升容错）
-    panel.addEventListener('touchstart', function(e){ e.stopPropagation(); }, {passive:true});
-  })();
-</script>
-
 </body>
+
 </html>

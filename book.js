@@ -262,12 +262,21 @@ function jumpChapterList(index, event) {
 }
 
 function jumpDetail(book) {
-    setCookie('book', window.decodeURIComponent(book));
+    book = JSON.parse(window.decodeURIComponent(book));
+    setCookie('book', JSON.stringify({
+        name: book.name || '',
+        author: book.author || '',
+        bookUrl: book.bookUrl || '',
+        durChapterIndex: typeof book.durChapterIndex === 'number' ? book.durChapterIndex : 0
+    }));
     location.href = 'detail.html';
 }
 
 function getBookField(name) {
     var book = getCookie('book');
+    if (!book) {
+        return null;
+    }
     book = JSON.parse(book);
     return book[name];
 }
@@ -280,7 +289,9 @@ function updateBookField(name, val) {
 }
 
 function jump(url) {
-    location.href = url;
+    var currentPath = window.location.pathname;
+    var baseDir = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
+    location.href = baseDir + url;
 }
 
 function prev(event) {
