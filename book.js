@@ -1,38 +1,46 @@
 var setStatus = false;
 var chapterList = [];
-var baseUrl = getCookie('url');
+var isChapterLoading = false;
 
 var config = {
     contentHeight: 0
 };
-if (!baseUrl) {
+
+var readerSettings = {
+    fontSizeBase: 0,
+    lineHeightBase: 0,
+    fontSizeStep: 2,
+    lineHeightStep: 4,
+    fontSizeLevel: 0,
+    lineHeightLevel: 0,
+    minFontSizeLevel: -4,
+    maxFontSizeLevel: 8,
+    minLineHeightLevel: -4,
+    maxLineHeightLevel: 10
+};
+
+if (!getBaseUrl()) {
     setStatus = false;
     openSet();
 }
 
 function $$(key) {
-    var a = key.charAt(0);
-    var n;
-    if (a === '#') {
-        n = document.getElementById(key.slice(1));
-    } else if (a === '.') {
-        n = document.getElementsByClassName(key.slice(1));
-    } else {
-        n = document.getElementsByTagName(key);
+    var firstChar = key.charAt(0);
+    if (firstChar === '#') {
+        return document.getElementById(key.slice(1));
     }
-    return n;
+    if (firstChar === '.') {
+        return document.getElementsByClassName(key.slice(1));
+    }
+    return document.getElementsByTagName(key);
 }
 
-// 设置cookie
 function setCookie(name, value) {
-    var expires;
     var date = new Date();
     date.setTime(date.getTime() + 999 * 24 * 60 * 60 * 1000);
-    expires = '; expires=' + date.toUTCString();
-    document.cookie = name + '=' + (value || '') + expires + '; path=/';
+    document.cookie = name + '=' + encodeURIComponent(value || '') + '; expires=' + date.toUTCString() + '; path=/';
 }
 
-// 获取cookie
 function getCookie(name) {
     var nameEQ = name + '=';
     var cookies = document.cookie.split(';');
@@ -42,164 +50,219 @@ function getCookie(name) {
             cookie = cookie.substring(1, cookie.length);
         }
         if (cookie.indexOf(nameEQ) === 0) {
-            return cookie.substring(nameEQ.length, cookie.length);
+            return decodeURIComponent(cookie.substring(nameEQ.length, cookie.length));
         }
     }
     return null;
 }
 
-function openSet() {
+function getBaseUrl() {
     var url = getCookie('url');
+    if (!url || url === 'null' || url === 'undefined') {
+        return '';
+    }
+    return url.replace(/\/+$/, '');
+}
+
+function openSet() {
+    var url = getBaseUrl();
     if (!url) {
         url = 'http://192.168.1.***:1122';
     }
     $$('#url').value = url;
-    if (setStatus) {
-        $$('.set-url')[0].setAttribute('style', 'display:none;');
-    } else {
-        $$('.set-url')[0].setAttribute('style', 'display:block;');
-    }
+    $$('.set-url')[0].style.display = setStatus ? 'none' : 'block';
     setStatus = !setStatus;
 }
 
-// 设置web服务链接
 function setUrl() {
-    var url = $$('#url').value;
+    var url = $$('#url').value.replace(/^\s+|\s+$/g, '');
     if (!url) {
-        alert('必须输入链接！');
-    } else {
-        setCookie('url', url);
-        window.location.reload();
+        alert('URL is required');
+        return;
     }
+    setCookie('url', url);
+    window.location.reload();
 }
 
 function ajax(method, url, data, callback) {
+    var baseUrl = getBaseUrl();
+    if (!baseUrl) {
+        callback('missing_base_url', null);
+        return;
+    }
+
     var xhr;
     if (window.XMLHttpRequest) {
         xhr = new XMLHttpRequest();
     } else {
         xhr = new ActiveXObject('Microsoft.XMLHTTP');
     }
-    xhr.open(method, baseUrl + url);
+
+    xhr.open(method, baseUrl + url, true);
 
     if (method === 'POST') {
         xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
     }
 
     xhr.onreadystatechange = function () {
-        if (xhr.readyState === XMLHttpRequest.DONE) {
-            if (xhr.status === 200) {
-                callback(null, JSON.parse(xhr.responseText));
-            } else {
-                callback(xhr.status, null);
-            }
+        if (xhr.readyState !== XMLHttpRequest.DONE) {
+            return;
+        }
+
+        if (xhr.status === 200) {
+            callback(null, JSON.parse(xhr.responseText));
+        } else {
+            callback(xhr.status, null);
         }
     };
 
-    xhr.send(JSON.stringify(data));
+    xhr.send(method === 'POST' ? JSON.stringify(data) : null);
 }
 
-// 获取书籍列表
 function getList() {
     ajax('GET', '/getBookshelf', {}, function (err, res) {
+        if (err === 'missing_base_url') {
+            alert('Service URL is missing. Please save the URL and reload.');
+            return;
+        }
+        if (err || !res || !res.data) {
+            alert('Failed to load bookshelf. Please check the service URL.');
+            return;
+        }
+
         var data = res.data;
-        console.log(data);
+        var baseUrl = getBaseUrl();
         var bookList = '';
-        for (var i in data) {
+        for (var i = 0; i < data.length; i++) {
             var book = data[i];
-            var b = window.encodeURIComponent(JSON.stringify(book));
-            bookList += '<div class="book" onclick="jumpDetail(\'' + b +
-                '\')">' + '<div class="cover-img">' +
-                '<img class="cover" src="' + baseUrl + '/cover?path=' +
-                book['coverUrl'] + '" alt="' + book['name'] + '"></div>' +
+            var encodedBook = window.encodeURIComponent(JSON.stringify(book));
+            bookList += '<div class="book" onclick="jumpDetail(\'' + encodedBook + '\')">' +
+                '<div class="cover-img">' +
+                '<img class="cover" src="' + baseUrl + '/cover?path=' + book.coverUrl + '" alt="' + escapeHtml(book.name) + '">' +
+                '</div>' +
                 '<div class="info">' +
-                '<div class="name">' + book['name'] + '</div>' +
+                '<div class="name">' + escapeHtml(book.name) + '</div>' +
                 '<div class="sub">' +
-                '<div class="author"> ' + book['author'] + ' </div>' +
-                '<div class="dot">•</div>' +
-                '<div class="size">共' + book['totalChapterNum'] + '章</div>' +
-                '<div class="dot">•</div>' + '<div class="date">' +
-                dateFormat(book['durChapterTime']) + '</div>' + '</div>' +
-                '<div class="dur-chapter">已读：' + book['durChapterTitle'] +
-                '</div>' + '<div class="last-chapter"> 最新：' +
-                book['latestChapterTitle'] + ' </div>' + '</div>' + '</div>';
+                '<div class="author">' + escapeHtml(book.author) + '</div>' +
+                '<div class="dot">*</div>' +
+                '<div class="size">Chapters: ' + book.totalChapterNum + '</div>' +
+                '<div class="dot">*</div>' +
+                '<div class="date">' + dateFormat(book.durChapterTime) + '</div>' +
+                '</div>' +
+                '<div class="dur-chapter">Reading: ' + escapeHtml(book.durChapterTitle || '') + '</div>' +
+                '<div class="last-chapter">Latest: ' + escapeHtml(book.latestChapterTitle || '') + '</div>' +
+                '</div>' +
+                '</div>';
         }
         $$('#book_list').innerHTML = bookList;
     });
 }
 
-// 获取章节内容
 function getBookContent(type) {
-    $$('.menu')[0].setAttribute('style', 'display:none;');
+    if (isChapterLoading) {
+        return;
+    }
+
+    isChapterLoading = true;
+    hideSettings();
+
+    var menus = $$('.menu');
+    if (menus.length) {
+        menus[0].style.display = 'none';
+    }
+
     var url = getBookField('bookUrl');
     var index = getBookField('durChapterIndex');
-    ajax('GET', '/getBookContent?url=' + url + '&index=' + index, {},
-        function (err, res) {
-            console.log(res);
-            var content = res.data.split(/\n+/);
-            var c = '';
-            for (var i in content) {
-                c += '<p>' + content[i] + '</p>';
-            }
-            $('#content1').html(c);
+    ajax('GET', '/getBookContent?url=' + encodeURIComponent(url) + '&index=' + index, {}, function (err, res) {
+        isChapterLoading = false;
 
-            if (type === 'next') {
-                $$('#content1').scrollTop = 0;
-                config.contentHeight = 0;
-            } else {
-                console.log($$('#content1').scrollHeight);
-                $$('#content1').scrollTop = $$('#content1').scrollHeight;
-                config.contentHeight = $$('#content1').scrollHeight;
+        if (err === 'missing_base_url') {
+            alert('Service URL is missing. Please save the URL and reload.');
+            return;
+        }
+        if (err || !res || typeof res.data !== 'string') {
+            alert('Failed to load chapter content.');
+            return;
+        }
+
+        var contentNode = $$('#content1');
+        var content = res.data.split(/\n+/);
+        var html = '';
+        for (var i = 0; i < content.length; i++) {
+            if (content[i]) {
+                html += '<p>' + escapeHtml(content[i]) + '</p>';
             }
-            saveBookProgress(index);
-        });
+        }
+        $('#content1').html(html);
+
+        applyReaderSettings();
+
+        if (type === 'prev') {
+            contentNode.scrollTop = contentNode.scrollHeight;
+            config.contentHeight = contentNode.scrollTop;
+        } else {
+            contentNode.scrollTop = 0;
+            config.contentHeight = 0;
+        }
+
+        saveBookProgress(index);
+    });
 }
 
-// 保存阅读进度
 function saveBookProgress(index) {
-    if (chapterList[index - 1]['title']) {
-        ajax('POST', '/saveBookProgress', {
-            name: getBookField('name'),
-            author: getBookField('author'),
-            durChapterIndex: index,
-            durChapterPos: 1,
-            durChapterTime: new Date().getTime(),
-            durChapterTitle: chapterList[index - 1]['title']
-        }, function (err, res) {
-            console.log(res);
-        });
+    if (!chapterList.length || !chapterList[index - 1] || !chapterList[index - 1].title) {
+        return;
     }
+
+    ajax('POST', '/saveBookProgress', {
+        name: getBookField('name'),
+        author: getBookField('author'),
+        durChapterIndex: index,
+        durChapterPos: 1,
+        durChapterTime: new Date().getTime(),
+        durChapterTitle: chapterList[index - 1].title
+    }, function () {});
 }
 
-// 获取目录
 function getChapterList() {
     var url = getBookField('bookUrl');
-    ajax('GET', '/getChapterList?url=' + url, {}, function (err, res) {
-        console.log(res);
+    ajax('GET', '/getChapterList?url=' + encodeURIComponent(url), {}, function (err, res) {
+        if (err === 'missing_base_url') {
+            alert('Service URL is missing. Please save the URL and reload.');
+            return;
+        }
+        if (err || !res || !res.data) {
+            return;
+        }
+
         chapterList = res.data;
         var html = '';
-        for (var i in chapterList) {
-            var a = chapterList[i];
-            html += '<p onclick=\'jumpChapterList(' + a['index'] + ')\'>' +
-                a['title'] + '</p>';
+        for (var i = 0; i < chapterList.length; i++) {
+            var chapter = chapterList[i];
+            html += '<p onclick="jumpChapterList(' + chapter.index + ', event)">' + escapeHtml(chapter.title) + '</p>';
         }
         $$('.chapter-list')[0].innerHTML = html;
     });
 }
 
-function openChapterList() {
-    $$('.chapter-list')[0].setAttribute('style', 'display:block;');
+function openChapterList(event) {
+    stopEvent(event);
+    hideSettings();
+    $$('.chapter-list')[0].style.display = 'block';
 }
 
-function jumpChapterList(index) {
+function jumpChapterList(index, event) {
+    stopEvent(event);
+    if (isChapterLoading) {
+        return;
+    }
     updateBookField('durChapterIndex', index);
     getBookContent('next');
-    $$('.chapter-list')[0].setAttribute('style', 'display:none;');
+    $$('.chapter-list')[0].style.display = 'none';
 }
 
 function jumpDetail(book) {
-    book = window.decodeURIComponent(book);
-    setCookie('book', book);
+    setCookie('book', window.decodeURIComponent(book));
     location.href = 'detail.html';
 }
 
@@ -213,71 +276,228 @@ function updateBookField(name, val) {
     var book = getCookie('book');
     book = JSON.parse(book);
     book[name] = val;
-    book = JSON.stringify(book);
-    setCookie('book', book);
+    setCookie('book', JSON.stringify(book));
 }
 
 function jump(url) {
     location.href = url;
 }
 
-function prev() {
-    var index = getBookField('durChapterIndex');
-    index--;
-    if (index < 0) {
-        alert('已经到第一章了，前面没有喽！');
-    } else {
-        updateBookField('durChapterIndex', index);
-        getBookContent('prev');
+function prev(event) {
+    stopEvent(event);
+    if (isChapterLoading) {
+        return;
     }
+
+    var index = getBookField('durChapterIndex') - 1;
+    if (index < 0) {
+        alert('Already at the first chapter.');
+        return;
+    }
+
+    updateBookField('durChapterIndex', index);
+    getBookContent('prev');
 }
 
-function next() {
-    var index = getBookField('durChapterIndex');
-    index++;
+function next(event) {
+    stopEvent(event);
+    if (isChapterLoading) {
+        return;
+    }
+
+    var index = getBookField('durChapterIndex') + 1;
+    if (chapterList.length && index >= chapterList.length) {
+        alert('Already at the last chapter.');
+        return;
+    }
+
     updateBookField('durChapterIndex', index);
     getBookContent('next');
 }
 
+function initReaderSettings() {
+    if (!$$('#content1') || !$$('#mainText')) {
+        return;
+    }
+
+    var contentStyle = window.getComputedStyle($$('#content1'));
+    var textStyle = window.getComputedStyle($$('#mainText'));
+    var sampleParagraph = document.createElement('p');
+    sampleParagraph.innerHTML = 'sample';
+    $$('#content1').appendChild(sampleParagraph);
+    var paragraphStyle = window.getComputedStyle(sampleParagraph);
+
+    readerSettings.fontSizeBase = parseFloat(textStyle.fontSize);
+    readerSettings.lineHeightBase = parseFloat(paragraphStyle.lineHeight);
+    $$('#content1').removeChild(sampleParagraph);
+
+    var cached = getCookie('reader_settings');
+    if (cached) {
+        try {
+            var saved = JSON.parse(cached);
+            readerSettings.fontSizeLevel = toNumber(saved.fontSizeLevel, 0);
+            readerSettings.lineHeightLevel = toNumber(saved.lineHeightLevel, 0);
+        } catch (e) {}
+    }
+
+    applyReaderSettings();
+}
+
+function toggleSettings(event) {
+    stopEvent(event);
+    var panel = $$('#settingsPanel');
+    if (!panel) {
+        return;
+    }
+
+    if (panel.style.display === 'block') {
+        panel.style.display = 'none';
+    } else {
+        panel.style.display = 'block';
+        $$('.chapter-list')[0].style.display = 'none';
+        updateReaderSettingsText();
+    }
+}
+
+function hideSettings() {
+    var panel = $$('#settingsPanel');
+    if (panel) {
+        panel.style.display = 'none';
+    }
+}
+
+function changeFontSize(step, event) {
+    stopEvent(event);
+    var nextLevel = readerSettings.fontSizeLevel + step;
+    readerSettings.fontSizeLevel = clamp(nextLevel, readerSettings.minFontSizeLevel, readerSettings.maxFontSizeLevel);
+    persistReaderSettings();
+    applyReaderSettings();
+}
+
+function changeLineHeight(step, event) {
+    stopEvent(event);
+    var nextLevel = readerSettings.lineHeightLevel + step;
+    readerSettings.lineHeightLevel = clamp(nextLevel, readerSettings.minLineHeightLevel, readerSettings.maxLineHeightLevel);
+    persistReaderSettings();
+    applyReaderSettings();
+}
+
+function applyReaderSettings() {
+    if (!$$('#mainText') || !$$('#content1')) {
+        return;
+    }
+
+    var fontSize = readerSettings.fontSizeBase + readerSettings.fontSizeLevel * readerSettings.fontSizeStep;
+    var lineHeight = readerSettings.lineHeightBase + readerSettings.lineHeightLevel * readerSettings.lineHeightStep;
+    var paragraphs = $$('#content1').getElementsByTagName('p');
+
+    $$('#mainText').style.fontSize = fontSize + 'px';
+    for (var i = 0; i < paragraphs.length; i++) {
+        paragraphs[i].style.lineHeight = lineHeight + 'px';
+    }
+
+    updateReaderSettingsText();
+}
+
+function updateReaderSettingsText() {
+    var fontValue = $$('#fontSizeValue');
+    var lineHeightValue = $$('#lineHeightValue');
+    if (!fontValue || !lineHeightValue) {
+        return;
+    }
+
+    fontValue.innerHTML = (readerSettings.fontSizeBase +
+        readerSettings.fontSizeLevel * readerSettings.fontSizeStep) + 'px';
+    lineHeightValue.innerHTML = (readerSettings.lineHeightBase +
+        readerSettings.lineHeightLevel * readerSettings.lineHeightStep) + 'px';
+}
+
+function persistReaderSettings() {
+    setCookie('reader_settings', JSON.stringify({
+        fontSizeLevel: readerSettings.fontSizeLevel,
+        lineHeightLevel: readerSettings.lineHeightLevel
+    }));
+}
+
+function isBottomReached(node) {
+    return node.scrollTop + node.clientHeight >= node.scrollHeight - 2;
+}
+
+function isTopReached(node) {
+    return node.scrollTop <= 0;
+}
+
+function stopEvent(event) {
+    if (event && event.stopPropagation) {
+        event.stopPropagation();
+    }
+}
+
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
+
+function toNumber(value, fallback) {
+    var number = parseInt(value, 10);
+    return isNaN(number) ? fallback : number;
+}
+
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function dateFormat(t) {
-    var time = new Date().getTime();
-    var int = parseInt((time - t) / 1000);
-    var str;
+    if (!t) {
+        return '';
+    }
+
+    var now = new Date().getTime();
+    var seconds = parseInt((now - t) / 1000, 10);
+
     Date.prototype.format = function (fmt) {
-        var o = {
-            'M+': this.getMonth() + 1, //月份
-            'd+': this.getDate(), //日
-            'h+': this.getHours(), //小时
-            'm+': this.getMinutes(), //分
-            's+': this.getSeconds(), //秒
-            'q+': Math.floor((this.getMonth() + 3) / 3), //季度
-            S: this.getMilliseconds() //毫秒
+        var map = {
+            'M+': this.getMonth() + 1,
+            'd+': this.getDate(),
+            'h+': this.getHours(),
+            'm+': this.getMinutes(),
+            's+': this.getSeconds(),
+            'q+': Math.floor((this.getMonth() + 3) / 3),
+            S: this.getMilliseconds()
         };
+
         if (/(y+)/.test(fmt)) {
-            fmt = fmt.replace(RegExp.$1,
-                (this.getFullYear() + '').substr(4 - RegExp.$1.length));
+            fmt = fmt.replace(RegExp.$1, (this.getFullYear() + '').substr(4 - RegExp.$1.length));
         }
-        for (var k in o) {
-            if (new RegExp('(' + k + ')').test(fmt)) {
-                fmt = fmt.replace(RegExp.$1,
-                    RegExp.$1.length === 1 ? o[k] : ('00' + o[k]).substr(
-                        ('' + o[k]).length));
+
+        for (var key in map) {
+            if (new RegExp('(' + key + ')').test(fmt)) {
+                fmt = fmt.replace(RegExp.$1, RegExp.$1.length === 1
+                    ? map[key]
+                    : ('00' + map[key]).substr(('' + map[key]).length));
             }
         }
         return fmt;
     };
-    if (int <= 30) {
-        str = '刚刚';
-    } else if (int < 60) {
-        str = int + '秒前';
-    } else if (int < 3600) {
-        str = parseInt(int / 60) + '分钟前';
-    } else if (int < 86400) {
-        str = parseInt(int / 3600) + '小时前';
-    } else if (int < 2592000) {
-        str = parseInt(int / 86400) + '天前';
-    } else {
-        str = new Date(t).format('yyyy-MM-dd');
+
+    if (seconds <= 30) {
+        return 'just now';
     }
-    return str;
+    if (seconds < 60) {
+        return seconds + 's ago';
+    }
+    if (seconds < 3600) {
+        return parseInt(seconds / 60, 10) + 'm ago';
+    }
+    if (seconds < 86400) {
+        return parseInt(seconds / 3600, 10) + 'h ago';
+    }
+    if (seconds < 2592000) {
+        return parseInt(seconds / 86400, 10) + 'd ago';
+    }
+    return new Date(t).format('yyyy-MM-dd');
 }

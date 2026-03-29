@@ -7,12 +7,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <style>
         html,
-        head,
         body {
             padding: 0;
             margin: 0;
             height: 100%;
             overflow: hidden;
+            background: #fff;
         }
 
         a {
@@ -39,11 +39,11 @@
             display: none;
             position: fixed;
             bottom: 0;
+            left: 0;
             background: #fff;
             padding: 20px;
             border-top: 1px solid #ddd;
             width: 100%;
-
             box-sizing: border-box;
         }
 
@@ -55,78 +55,144 @@
         .chapter-list {
             position: fixed;
             top: 0;
+            left: 0;
+            right: 0;
             background: #fff;
             display: none;
+            max-height: 70vh;
+            overflow: auto;
+            border-bottom: 1px solid #ddd;
         }
 
         .chapter-list p {
             padding: 10px;
             margin: 0;
         }
+
+        .settings-panel {
+            display: none;
+            position: fixed;
+            right: 20px;
+            bottom: 90px;
+            width: 280px;
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+
+        .settings-panel .row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .settings-panel .row:last-child {
+            margin-bottom: 0;
+        }
+
+        .settings-panel .value {
+            min-width: 72px;
+            text-align: center;
+        }
+
+        .settings-panel button {
+            width: 36px;
+            height: 36px;
+            border: 1px solid #ddd;
+            background: #fff;
+            font-size: 20px;
+        }
     </style>
 </head>
 
 <body>
-<div id='page'>
-    <div id='mainText' class='main-text'>
-        <!-- <h3>第一章：重生</h3> -->
+<div id="page">
+    <div id="mainText" class="main-text">
         <div id="content1"></div>
         <div class="chapter-list"></div>
-        <div class="menu">
-            <div onclick="jump('/book.html')" style="padding-bottom: 30px;">书架</div>
-            <!-- <div onclick="alert('开发中~~')">设置</div> -->
-            <div onclick="openChapterList()">目录</div>
-            <div onclick="prev()">上一章</div>
-            <div onclick="next()">下一章</div>
+        <div class="settings-panel" id="settingsPanel">
+            <div class="row">
+                <span>Font Size</span>
+                <button type="button" onclick="changeFontSize(-1, event)">-</button>
+                <span class="value" id="fontSizeValue"></span>
+                <button type="button" onclick="changeFontSize(1, event)">+</button>
+            </div>
+            <div class="row">
+                <span>Line Height</span>
+                <button type="button" onclick="changeLineHeight(-1, event)">-</button>
+                <span class="value" id="lineHeightValue"></span>
+                <button type="button" onclick="changeLineHeight(1, event)">+</button>
+            </div>
         </div>
-
+        <div class="menu">
+            <div onclick="jump('/book.html')">Shelf</div>
+            <div onclick="toggleSettings(event)">Settings</div>
+            <div onclick="openChapterList(event)">TOC</div>
+            <div onclick="prev(event)">Prev</div>
+            <div onclick="next(event)">Next</div>
+        </div>
     </div>
 </div>
 <script src="./jquery-2.2.4.min.js?v1"></script>
-<script src="./book.js?v1"></script>
+<script src="./book.js?v2"></script>
 <script>
     var menu = false;
 
+    initReaderSettings();
     getBookContent('next');
     getChapterList();
 
-    // 获取 div 容器元素
     var contentNode = $$('#content1');
-
     var windowHeight = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
     var contentHeight = windowHeight - 55;
     contentNode.setAttribute('style', 'height: ' + contentHeight + 'px;');
 
-    var container_rect = contentNode.getBoundingClientRect();
-    var next_x = Math.floor(container_rect.right - container_rect.width * 0.3);
-    var prev_x = Math.floor(container_rect.left + container_rect.width * 0.3);
+    var containerRect = contentNode.getBoundingClientRect();
+    var nextX = Math.floor(containerRect.right - containerRect.width * 0.3);
+    var prevX = Math.floor(containerRect.left + containerRect.width * 0.3);
 
-    document.addEventListener('click', function(event) {
+    document.addEventListener('click', function (event) {
+        if (event.target.closest('.menu') || event.target.closest('.chapter-list') ||
+            event.target.closest('.settings-panel')) {
+            return;
+        }
+
         var x = event.clientX;
-        if (x > next_x) {
+        if (x > nextX) {
             contentNode.scrollTop += (contentHeight - 20);
-            page()
-        } else if (x < prev_x) {
+            page('next');
+        } else if (x < prevX) {
             contentNode.scrollTop -= (contentHeight - 20);
-            page()
+            page('prev');
         } else {
             if (menu) {
-                $$('.menu')[0].setAttribute('style', 'display:none;');
+                hideMenu();
             } else {
-                $$('.menu')[0].setAttribute('style', 'display:block;');
+                showMenu();
             }
-            menu = !menu;
         }
     });
 
-    function page() {
-        if (contentNode.scrollTop !== 0 && config.contentHeight === contentNode.scrollTop) {
+    function page(direction) {
+        if (direction === 'next' && isBottomReached(contentNode)) {
             next();
-        } else if (contentNode.scrollTop === 0 && config.contentHeight === contentNode.scrollTop) {
+        } else if (direction === 'prev' && isTopReached(contentNode)) {
             prev();
-        } else {
-            config.contentHeight = contentNode.scrollTop;
         }
+        config.contentHeight = contentNode.scrollTop;
+    }
+
+    function showMenu() {
+        $$('.menu')[0].style.display = 'block';
+        menu = true;
+    }
+
+    function hideMenu() {
+        $$('.menu')[0].style.display = 'none';
+        hideSettings();
+        menu = false;
     }
 </script>
 </body>
