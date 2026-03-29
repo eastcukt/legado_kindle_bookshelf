@@ -135,6 +135,10 @@
         </div>
     </div>
 </div>
+
+<!-- Settings panel; actual UI rendered by detail-settings.js on first open -->
+<div id="settingsPanel" style="display:none; position: fixed; bottom: 60px; left: 0; right: 0; background:#fff; border-top:1px solid #ddd; padding:12px; z-index:1000;"></div>
+
 <script src="./jquery-2.2.4.min.js?v1"></script>
 <script src="./book.js?v2"></script>
 <script>
@@ -195,6 +199,29 @@
         menu = false;
     }
 </script>
-</body>
+<script>
+  // 目录跳转时使用相对路径
+  function jump(target) {
+    if (typeof target === 'string' && target.startsWith('/')) {
+      var baseDir = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+      window.location.href = window.location.origin + baseDir + target.substring(1);
+    } else {
+      window.location.href = target;
+    }
+  }
+</script>
 
+<script>
+  // 设置面板拦截冒泡：在打开设置面板时阻止冒泡触发翻页事件
+  (function(){
+    var panel = document.getElementById('settingsPanel');
+    if (!panel) return;
+    // 当设置面板显示时，阻止全局点击事件冒泡
+    panel.addEventListener('click', function(e){ e.stopPropagation(); });
+    // 当面板显示时也阻止触摸事件的默认冒泡行为（提升容错）
+    panel.addEventListener('touchstart', function(e){ e.stopPropagation(); }, {passive:true});
+  })();
+</script>
+
+</body>
 </html>
