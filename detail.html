@@ -35,6 +35,14 @@
             line-height: 2.4rem;
         }
 
+        #content1 .chapter-title {
+            margin: 0 0 1.2em 0;
+            font-size: 1.45em;
+            font-weight: 700;
+            line-height: 1.5;
+            text-align: center;
+        }
+
         .menu {
             display: none;
             position: fixed;
@@ -148,7 +156,7 @@
     </div>
 </div>
 <script src="./jquery-2.2.4.min.js?v1"></script>
-<script src="./book.js?v3"></script>
+<script src="./book.js?v5"></script>
 <script>
     var menu = false;
 
@@ -173,12 +181,13 @@
         }
 
         var x = event.clientX;
+        var previousScrollTop = contentNode.scrollTop;
         if (x > nextX) {
             contentNode.scrollTop += (contentHeight - 20);
-            page('next');
+            page('next', previousScrollTop);
         } else if (x < prevX) {
             contentNode.scrollTop -= (contentHeight - 20);
-            page('prev');
+            page('prev', previousScrollTop);
         } else {
             if (menu) {
                 hideMenu();
@@ -188,13 +197,38 @@
         }
     }, false);
 
-    function page(direction) {
-        if (direction === 'next' && isBottomReached(contentNode)) {
-            next();
-        } else if (direction === 'prev' && isTopReached(contentNode)) {
-            prev();
+    function page(direction, previousScrollTop) {
+        var currentScrollTop = contentNode.scrollTop;
+
+        if (currentScrollTop !== previousScrollTop) {
+            if (direction === 'next' && isBottomReached(contentNode)) {
+                config.boundaryDirection = 'next';
+            } else if (direction === 'prev' && isTopReached(contentNode)) {
+                config.boundaryDirection = 'prev';
+            } else {
+                resetBoundaryState();
+            }
+            config.contentHeight = currentScrollTop;
+            return;
         }
-        config.contentHeight = contentNode.scrollTop;
+
+        if (direction === 'next' && isBottomReached(contentNode)) {
+            if (config.boundaryDirection === 'next') {
+                next();
+                return;
+            }
+            config.boundaryDirection = 'next';
+        } else if (direction === 'prev' && isTopReached(contentNode)) {
+            if (config.boundaryDirection === 'prev') {
+                prev();
+                return;
+            }
+            config.boundaryDirection = 'prev';
+        } else {
+            resetBoundaryState();
+        }
+
+        config.contentHeight = currentScrollTop;
     }
 
     function showMenu() {

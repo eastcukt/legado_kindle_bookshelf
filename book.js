@@ -1,9 +1,12 @@
 var setStatus = false;
 var chapterList = [];
 var isChapterLoading = false;
+var chapterContentCache = {};
+var chapterContentRequests = {};
 
 var config = {
-    contentHeight: 0
+    contentHeight: 0,
+    boundaryDirection: ''
 };
 
 var readerSettings = {
@@ -158,6 +161,75 @@ function getList() {
     });
 }
 
+function getChapterContentCacheKey(bookUrl, index) {
+    return encodeURIComponent(bookUrl) + '::' + index;
+}
+
+function fetchChapterContent(bookUrl, index, callback) {
+    var cacheKey = getChapterContentCacheKey(bookUrl, index);
+    if (chapterContentCache.hasOwnProperty(cacheKey)) {
+        callback(null, chapterContentCache[cacheKey]);
+        return;
+    }
+
+    if (chapterContentRequests[cacheKey]) {
+        chapterContentRequests[cacheKey].push(callback);
+        return;
+    }
+
+    chapterContentRequests[cacheKey] = [callback];
+    ajax('GET', '/getBookContent?url=' + encodeURIComponent(bookUrl) + '&index=' + index, {}, function (err, res) {
+        var callbacks = chapterContentRequests[cacheKey] || [];
+        var content = null;
+        delete chapterContentRequests[cacheKey];
+
+        if (!err && res && typeof res.data === 'string') {
+            content = res.data;
+            chapterContentCache[cacheKey] = content;
+        }
+
+        for (var i = 0; i < callbacks.length; i++) {
+            callbacks[i](err, content);
+        }
+    });
+}
+
+function prefetchNextChapter(bookUrl, index) {
+    var nextIndex = index + 1;
+    if (!hasNextChapter(index)) {
+        return;
+    }
+
+    fetchChapterContent(bookUrl, nextIndex, function () {});
+}
+
+function hasNextChapter(index) {
+    if (!chapterList.length) {
+        return true;
+    }
+    return index < chapterList[chapterList.length - 1].index;
+}
+
+function hasPrevChapter(index) {
+    if (!chapterList.length) {
+        return index > 0;
+    }
+    return index > chapterList[0].index;
+}
+
+function resetBoundaryState() {
+    config.boundaryDirection = '';
+}
+
+function getChapterTitle(index) {
+    for (var i = 0; i < chapterList.length; i++) {
+        if (chapterList[i] && chapterList[i].index === index) {
+            return chapterList[i].title || '';
+        }
+    }
+    return getBookField('durChapterTitle') || '';
+}
+
 function getBookContent(type) {
     if (isChapterLoading) {
         return;
@@ -173,21 +245,25 @@ function getBookContent(type) {
 
     var url = getBookField('bookUrl');
     var index = getBookField('durChapterIndex');
-    ajax('GET', '/getBookContent?url=' + encodeURIComponent(url) + '&index=' + index, {}, function (err, res) {
+    fetchChapterContent(url, index, function (err, contentText) {
         isChapterLoading = false;
 
         if (err === 'missing_base_url') {
             alert('Service URL is missing. Please save the URL and reload.');
             return;
         }
-        if (err || !res || typeof res.data !== 'string') {
+        if (err || typeof contentText !== 'string') {
             alert('Failed to load chapter content.');
             return;
         }
 
         var contentNode = $$('#content1');
-        var content = res.data.split(/\n+/);
+        var content = contentText.split(/\n+/);
+        var chapterTitle = getChapterTitle(index);
         var html = '';
+        if (chapterTitle) {
+            html += '<div class="chapter-title">' + escapeHtml(chapterTitle) + '</div>';
+        }
         for (var i = 0; i < content.length; i++) {
             if (content[i]) {
                 html += '<p>' + escapeHtml(content[i]) + '</p>';
@@ -205,14 +281,19 @@ function getBookContent(type) {
             config.contentHeight = 0;
         }
 
+        resetBoundaryState();
         saveBookProgress(index);
+        prefetchNextChapter(url, index);
     });
 }
 
 function saveBookProgress(index) {
-    if (!chapterList.length || !chapterList[index - 1] || !chapterList[index - 1].title) {
+    var chapterTitle = getChapterTitle(index);
+    if (!chapterTitle) {
         return;
     }
+
+    updateBookField('durChapterTitle', chapterTitle);
 
     ajax('POST', '/saveBookProgress', {
         name: getBookField('name'),
@@ -220,7 +301,7 @@ function saveBookProgress(index) {
         durChapterIndex: index,
         durChapterPos: 1,
         durChapterTime: new Date().getTime(),
-        durChapterTitle: chapterList[index - 1].title
+        durChapterTitle: chapterTitle
     }, function () {});
 }
 
@@ -267,7 +348,8 @@ function jumpDetail(book) {
         name: book.name || '',
         author: book.author || '',
         bookUrl: book.bookUrl || '',
-        durChapterIndex: typeof book.durChapterIndex === 'number' ? book.durChapterIndex : 0
+        durChapterIndex: typeof book.durChapterIndex === 'number' ? book.durChapterIndex : 0,
+        durChapterTitle: book.durChapterTitle || ''
     }));
     location.href = 'detail.html';
 }
@@ -301,7 +383,7 @@ function prev(event) {
     }
 
     var index = getBookField('durChapterIndex') - 1;
-    if (index < 0) {
+    if (!hasPrevChapter(getBookField('durChapterIndex'))) {
         alert('Already at the first chapter.');
         return;
     }
@@ -317,7 +399,7 @@ function next(event) {
     }
 
     var index = getBookField('durChapterIndex') + 1;
-    if (chapterList.length && index >= chapterList.length) {
+    if (!hasNextChapter(getBookField('durChapterIndex'))) {
         alert('Already at the last chapter.');
         return;
     }
