@@ -4,6 +4,7 @@ var isChapterLoading = false;
 var chapterContentCache = {};
 var chapterContentRequests = {};
 var bookListData = [];
+var chapterListRendered = false;
 
 var config = {
     contentHeight: 0,
@@ -318,18 +319,26 @@ function getChapterList() {
         }
 
         chapterList = res.data;
-        var html = '';
-        for (var i = 0; i < chapterList.length; i++) {
-            var chapter = chapterList[i];
-            html += '<p onclick="jumpChapterList(' + chapter.index + ', event)">' + escapeHtml(chapter.title) + '</p>';
-        }
-        $$('.chapter-list')[0].innerHTML = html;
     });
+}
+
+function renderChapterListIfNeeded() {
+    if (chapterListRendered || !chapterList.length) {
+        return;
+    }
+    var html = '';
+    for (var i = 0; i < chapterList.length; i++) {
+        var chapter = chapterList[i];
+        html += '<p onclick="jumpChapterList(' + chapter.index + ', event)">' + escapeHtml(chapter.title) + '</p>';
+    }
+    $$('.chapter-list')[0].innerHTML = html;
+    chapterListRendered = true;
 }
 
 function openChapterList(event) {
     stopEvent(event);
     hideSettings();
+    renderChapterListIfNeeded();
     $$('.chapter-list')[0].style.display = 'block';
 }
 
