@@ -138,7 +138,7 @@ function getList() {
         var bookList = '';
         for (var i = 0; i < data.length; i++) {
             var book = data[i];
-            var encodedBook = window.encodeURIComponent(JSON.stringify(book));
+            var encodedBook = window.encodeURIComponent(JSON.stringify(book)).replace(/'/g, '%27');
             bookList += '<div class="book" onclick="jumpDetail(\'' + encodedBook + '\')">' +
                 '<div class="cover-img">' +
                 '<img class="cover" src="' + baseUrl + '/cover?path=' + book.coverUrl + '" alt="' + escapeHtml(book.name) + '">' +
