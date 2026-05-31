@@ -3,6 +3,7 @@ var chapterList = [];
 var isChapterLoading = false;
 var chapterContentCache = {};
 var chapterContentRequests = {};
+var bookListData = [];
 
 var config = {
     contentHeight: 0,
@@ -134,12 +135,12 @@ function getList() {
         }
 
         var data = res.data;
+        bookListData = data;
         var baseUrl = getBaseUrl();
         var bookList = '';
         for (var i = 0; i < data.length; i++) {
             var book = data[i];
-            var encodedBook = window.encodeURIComponent(JSON.stringify(book)).replace(/'/g, '%27');
-            bookList += '<div class="book" onclick="jumpDetail(\'' + encodedBook + '\')">' +
+            bookList += '<div class="book" onclick="jumpDetail(' + i + ')">' +
                 '<div class="cover-img">' +
                 '<img class="cover" src="' + baseUrl + '/cover?path=' + book.coverUrl + '" alt="' + escapeHtml(book.name) + '">' +
                 '</div>' +
@@ -342,8 +343,11 @@ function jumpChapterList(index, event) {
     $$('.chapter-list')[0].style.display = 'none';
 }
 
-function jumpDetail(book) {
-    book = JSON.parse(window.decodeURIComponent(book));
+function jumpDetail(index) {
+    var book = bookListData[index];
+    if (!book) {
+        return;
+    }
     setCookie('book', JSON.stringify({
         name: book.name || '',
         author: book.author || '',
